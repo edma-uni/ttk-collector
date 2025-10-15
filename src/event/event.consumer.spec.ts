@@ -84,16 +84,14 @@ describe('EventConsumerService', () => {
       timestamp: '2025-10-15T12:00:00Z',
       source: 'tiktok',
       funnelStage: 'top',
-      eventType: 'video.view', // Use a valid TiktokTopEventType
+      eventType: 'video.view',
       data: {
         user: {
-          // Correct TiktokUser structure
           userId: 'user_tiktok_123',
           username: 'jane.doe',
           followers: 1500,
         },
         engagement: {
-          // Correct TiktokEngagementTop structure
           watchTime: 45,
           percentageWatched: 75,
           device: 'iOS',
@@ -134,18 +132,16 @@ describe('EventConsumerService', () => {
         },
       });
 
-      // FIX #1: Update the expected NATS subject
       expect(publishSpy).toHaveBeenCalledWith(
-        'processed.events.tiktok.top.video.view', // <-- Was 'ad.view'
+        'processed.events.tiktok.top.video.view',
         validEvent,
       );
 
       expect(mockMsg.ack).toHaveBeenCalled();
 
-      // FIX #2: Update the expected eventType for metrics
       expect(metricsService.incrementEventsProcessed).toHaveBeenCalledWith(
         'tiktok',
-        'video.view', // <-- Was 'ad.view'
+        'video.view',
         'top',
       );
     });
@@ -153,12 +149,11 @@ describe('EventConsumerService', () => {
     it('should handle validation errors', async () => {
       const invalidEvent = {
         eventId: 'evt_123',
-        // missing required fields
       };
 
       await (service as any).handleTiktokEvent(invalidEvent, mockMsg);
 
-      expect(mockMsg.ack).toHaveBeenCalled(); // Should ack invalid messages
+      expect(mockMsg.ack).toHaveBeenCalled();
       expect(metricsService.incrementEventsFailed).toHaveBeenCalledWith(
         'tiktok',
         'validation_error',
@@ -172,7 +167,7 @@ describe('EventConsumerService', () => {
 
       await (service as any).handleTiktokEvent(validEvent, mockMsg);
 
-      expect(mockMsg.ack).not.toHaveBeenCalled(); // Should NOT ack on processing errors
+      expect(mockMsg.ack).not.toHaveBeenCalled();
       expect(metricsService.incrementEventsFailed).toHaveBeenCalledWith(
         'tiktok',
         'processing_error',

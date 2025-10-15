@@ -30,9 +30,7 @@ export class AppController {
     try {
       await this.prisma.$queryRaw`SELECT 1`;
       checks.database = 'up';
-    } catch (error) {
-      // Database is down
-    }
+    } catch (error) {}
 
     if (this.natsConsumer.isConnected()) {
       checks.nats = 'up';

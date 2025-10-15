@@ -18,7 +18,4 @@ model TiktokEvent {
   data Json
 
   createdAt DateTime @default(now())
-
-  @@index([timestamp])
-  @@index([eventType])
 }
