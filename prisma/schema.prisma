@@ -1,0 +1,24 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TiktokEvent {
+  id      String @id @default(cuid())
+  eventId String @unique
+
+  timestamp   DateTime
+  funnelStage String
+  eventType   String
+
+  data Json
+
+  createdAt DateTime @default(now())
+
+  @@index([timestamp])
+  @@index([eventType])
+}
