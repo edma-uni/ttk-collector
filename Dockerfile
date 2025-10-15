@@ -7,9 +7,11 @@ RUN npm ci
 RUN npm prune --production
 
 FROM base AS builder
-COPY --from=dependencies /usr/src/app/node_modules ./node_modules
+COPY package*.json ./
+RUN npm ci
 COPY . .
 RUN npx prisma generate
+RUN npm test
 RUN npm run build
 
 FROM base AS production
