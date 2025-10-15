@@ -5,15 +5,11 @@ import { Logger } from 'nestjs-pino';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  // Use Pino logger
   app.useLogger(app.get(Logger));
-
-  // Enable graceful shutdown hooks
   app.enableShutdownHooks();
 
   const port = process.env.PORT ?? 3002;
 
-  // Start listening on HTTP port (for metrics and health endpoints)
   await app.listen(port);
 
   const logger = app.get(Logger);
