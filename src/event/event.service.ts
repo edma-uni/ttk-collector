@@ -1,6 +1,8 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { JsMsg } from 'nats';
 import { ZodError } from 'zod';
+import { randomUUID } from 'crypto';
+import { PinoLogger, InjectPinoLogger } from 'nestjs-pino';
 import { NatsConsumerService } from '../nats/nats-consumer.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MetricsService } from '../metrics/metrics.service';
@@ -8,9 +10,9 @@ import { tiktokEventSchema } from '../pipes/event.schema';
 
 @Injectable()
 export class EventConsumerService implements OnModuleInit {
-  private readonly logger = new Logger(EventConsumerService.name);
-
   constructor(
+    @InjectPinoLogger(EventConsumerService.name)
+    private readonly logger: PinoLogger,
     private readonly natsConsumer: NatsConsumerService,
     private readonly prisma: PrismaService,
     private readonly metrics: MetricsService,
@@ -24,7 +26,7 @@ export class EventConsumerService implements OnModuleInit {
   private async subscribeToTiktokEvents() {
     const subject = 'raw.events.tiktok.>';
 
-    this.logger.log(`Subscribing to subject: ${subject}`);
+    this.logger.info({ subject }, 'Subscribing to subject');
 
     await this.natsConsumer.subscribe(
       subject,
@@ -32,19 +34,34 @@ export class EventConsumerService implements OnModuleInit {
       'ttk-collector-tiktok',
     );
 
-    this.logger.log(`Successfully subscribed to ${subject}`);
+    this.logger.info({ subject }, 'Successfully subscribed');
   }
 
   private async handleTiktokEvent(data: unknown, msg: JsMsg): Promise<void> {
     const startTime = Date.now();
     const subject = msg.subject;
+    const correlationId = randomUUID();
 
-    this.logger.debug(`Processing message from ${subject}`);
-    this.logger.debug(`Received data: ${JSON.stringify(data)}`);
+    this.logger.debug(
+      { subject, correlationId },
+      'Processing message from NATS',
+    );
 
     try {
       // Step 1: Validate the event data using Zod schema
       const validatedEvent = tiktokEventSchema.parse(data);
+
+      this.logger.debug(
+        {
+          data: validatedEvent,
+          correlationId,
+          eventId: validatedEvent.eventId,
+          source: validatedEvent.source,
+          eventType: validatedEvent.eventType,
+          funnelStage: validatedEvent.funnelStage,
+        },
+        'Event validated successfully',
+      );
 
       // Step 2: Persist the validated event to the database
       await this.prisma.tiktokEvent.create({
@@ -77,14 +94,20 @@ export class EventConsumerService implements OnModuleInit {
         durationSeconds,
       );
 
-      this.logger.debug(
-        `Successfully processed event ${validatedEvent.eventId} from ${subject}`,
+      this.logger.info(
+        {
+          eventId: validatedEvent.eventId,
+          correlationId,
+          durationSeconds,
+        },
+        'Event processed successfully',
       );
     } catch (error) {
       // Handle validation errors
       if (error instanceof ZodError) {
         this.logger.warn(
-          `Validation failed for message from ${subject}: ${JSON.stringify(error.issues)}`,
+          { validationErrors: error.issues },
+          'Event validation failed',
         );
 
         // Acknowledge invalid messages to prevent redelivery
@@ -99,8 +122,8 @@ export class EventConsumerService implements OnModuleInit {
         const errorStack = error instanceof Error ? error.stack : undefined;
 
         this.logger.error(
-          `Processing error for message from ${subject}: ${errorMessage}`,
-          errorStack,
+          { error: errorMessage, stack: errorStack },
+          'Event processing failed',
         );
 
         // DO NOT acknowledge the message - let NATS redeliver it

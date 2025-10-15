@@ -1,88 +1,10 @@
 import { z } from 'zod';
 
+// === TikTok Event Schemas ===
 export const funnelStageSchema = z.union([
   z.literal('top'),
   z.literal('bottom'),
 ]);
-
-export const facebookTopEventTypeSchema = z.union([
-  z.literal('ad.view'),
-  z.literal('page.like'),
-  z.literal('comment'),
-  z.literal('video.view'),
-]);
-
-export const facebookBottomEventTypeSchema = z.union([
-  z.literal('ad.click'),
-  z.literal('form.submission'),
-  z.literal('checkout.complete'),
-]);
-
-export const facebookEventTypeSchema = z.union([
-  facebookTopEventTypeSchema,
-  facebookBottomEventTypeSchema,
-]);
-
-export const facebookUserLocationSchema = z.object({
-  country: z.string(),
-  city: z.string(),
-});
-
-export const facebookUserSchema = z.object({
-  userId: z.string(),
-  name: z.string(),
-  age: z.number(),
-  gender: z.union([
-    z.literal('male'),
-    z.literal('female'),
-    z.literal('non-binary'),
-  ]),
-  location: facebookUserLocationSchema,
-});
-
-export const facebookEngagementTopSchema = z.object({
-  actionTime: z.string(),
-  referrer: z.union([
-    z.literal('newsfeed'),
-    z.literal('marketplace'),
-    z.literal('groups'),
-  ]),
-  videoId: z.string().nullable(),
-});
-
-export const facebookEngagementBottomSchema = z.object({
-  adId: z.string(),
-  campaignId: z.string(),
-  clickPosition: z.union([
-    z.literal('top_left'),
-    z.literal('bottom_right'),
-    z.literal('center'),
-  ]),
-  device: z.union([z.literal('mobile'), z.literal('desktop')]),
-  browser: z.union([
-    z.literal('Chrome'),
-    z.literal('Firefox'),
-    z.literal('Safari'),
-  ]),
-  purchaseAmount: z.string().nullable(),
-});
-
-export const facebookEngagementSchema = z.union([
-  facebookEngagementTopSchema,
-  facebookEngagementBottomSchema,
-]);
-
-export const facebookEventSchema = z.object({
-  eventId: z.string(),
-  timestamp: z.string(),
-  source: z.literal('facebook'),
-  funnelStage: funnelStageSchema,
-  eventType: facebookEventTypeSchema,
-  data: z.object({
-    user: facebookUserSchema,
-    engagement: facebookEngagementSchema,
-  }),
-});
 
 export const tiktokTopEventTypeSchema = z.union([
   z.literal('video.view'),
@@ -138,10 +60,11 @@ export const tiktokEventSchema = z.object({
   source: z.literal('tiktok'),
   funnelStage: funnelStageSchema,
   eventType: tiktokEventTypeSchema,
+  correlationId: z.string().optional(), // For tracing across services
   data: z.object({
     user: tiktokUserSchema,
     engagement: tiktokEngagementSchema,
   }),
 });
 
-export const eventSchema = z.union([facebookEventSchema, tiktokEventSchema]);
+export const eventSchema = tiktokEventSchema;

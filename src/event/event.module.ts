@@ -7,5 +7,6 @@ import { NatsConsumerService } from '../nats/nats-consumer.service';
 @Module({
   imports: [PrismaModule, MetricsModule],
   providers: [EventConsumerService, NatsConsumerService],
+  exports: [NatsConsumerService],
 })
 export class EventModule {}

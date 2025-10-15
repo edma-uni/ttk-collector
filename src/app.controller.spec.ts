@@ -1,22 +1,105 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
-import { AppService } from './app.service';
+import { PrismaService } from './prisma/prisma.service';
+import { NatsConsumerService } from './nats/nats-consumer.service';
 
 describe('AppController', () => {
-  let appController: AppController;
+  let controller: AppController;
+  let prismaService: PrismaService;
+  let natsService: NatsConsumerService;
 
   beforeEach(async () => {
-    const app: TestingModule = await Test.createTestingModule({
+    const module: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService],
+      providers: [
+        {
+          provide: PrismaService,
+          useValue: {
+            $queryRaw: jest.fn(),
+          },
+        },
+        {
+          provide: NatsConsumerService,
+          useValue: {
+            isConnected: jest.fn(),
+          },
+        },
+      ],
     }).compile();
 
-    appController = app.get<AppController>(AppController);
+    controller = module.get<AppController>(AppController);
+    prismaService = module.get<PrismaService>(PrismaService);
+    natsService = module.get<NatsConsumerService>(NatsConsumerService);
   });
 
-  describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+  it('should be defined', () => {
+    expect(controller).toBeDefined();
+  });
+
+  describe('getHealth', () => {
+    it('should return ok status', async () => {
+      const result = await controller.getHealth();
+
+      expect(result.status).toBe('ok');
+      expect(result.timestamp).toBeDefined();
+    });
+  });
+
+  describe('getLiveness', () => {
+    it('should return ok status', () => {
+      const result = controller.getLiveness();
+
+      expect(result).toEqual({ status: 'ok' });
+    });
+  });
+
+  describe('getReadiness', () => {
+    it('should return ok when both DB and NATS are up', async () => {
+      jest.spyOn(prismaService, '$queryRaw').mockResolvedValue([{ 1: 1 }]);
+      jest.spyOn(natsService, 'isConnected').mockReturnValue(true);
+
+      const result = await controller.getReadiness();
+
+      expect(result.status).toBe('ok');
+      expect(result.checks.database).toBe('up');
+      expect(result.checks.nats).toBe('up');
+    });
+
+    it('should return degraded when DB is down', async () => {
+      jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockRejectedValue(new Error('DB error'));
+      jest.spyOn(natsService, 'isConnected').mockReturnValue(true);
+
+      const result = await controller.getReadiness();
+
+      expect(result.status).toBe('degraded');
+      expect(result.checks.database).toBe('down');
+      expect(result.checks.nats).toBe('up');
+    });
+
+    it('should return degraded when NATS is down', async () => {
+      jest.spyOn(prismaService, '$queryRaw').mockResolvedValue([{ 1: 1 }]);
+      jest.spyOn(natsService, 'isConnected').mockReturnValue(false);
+
+      const result = await controller.getReadiness();
+
+      expect(result.status).toBe('degraded');
+      expect(result.checks.database).toBe('up');
+      expect(result.checks.nats).toBe('down');
+    });
+
+    it('should return degraded when both are down', async () => {
+      jest
+        .spyOn(prismaService, '$queryRaw')
+        .mockRejectedValue(new Error('DB error'));
+      jest.spyOn(natsService, 'isConnected').mockReturnValue(false);
+
+      const result = await controller.getReadiness();
+
+      expect(result.status).toBe('degraded');
+      expect(result.checks.database).toBe('down');
+      expect(result.checks.nats).toBe('down');
     });
   });
 });
