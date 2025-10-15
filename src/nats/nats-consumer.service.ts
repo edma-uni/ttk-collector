@@ -97,6 +97,18 @@ export class NatsConsumerService implements OnModuleInit, OnModuleDestroy {
         num_replicas: 1, // Use 3 for production NATS cluster
         duplicate_window: 2 * 60 * 1_000_000_000, // 2 minutes deduplication
       },
+      {
+        name: 'PROCESSED_EVENTS',
+        subjects: ['processed.events.*.*.*'], // processed.events.{source}.{funnelStage}.{eventType}
+        retention: RetentionPolicy.Limits,
+        max_age: 7 * 24 * 60 * 60 * 1_000_000_000, // 7 days in nanoseconds
+        max_msgs: 1_000_000,
+        max_bytes: 1024 * 1024 * 1024, // 1GB
+        discard: DiscardPolicy.Old,
+        storage: StorageType.File, // Persistent storage
+        num_replicas: 1, // Use 3 for production NATS cluster
+        duplicate_window: 2 * 60 * 1_000_000_000, // 2 minutes deduplication
+      },
     ];
 
     for (const streamConfig of streams) {
@@ -212,5 +224,25 @@ export class NatsConsumerService implements OnModuleInit, OnModuleDestroy {
 
   getConnection(): NatsConnection {
     return this.nc;
+  }
+
+  /**
+   * Publish a message to NATS JetStream
+   * @param subject - The subject to publish to (e.g., "processed.events.tiktok.top.video.view")
+   * @param data - The data to publish
+   */
+  async publish(subject: string, data: unknown): Promise<void> {
+    if (!this.js) {
+      throw new Error('JetStream is not initialized');
+    }
+
+    try {
+      const payload = this.jsonCodec.encode(data);
+      await this.js.publish(subject, payload);
+      this.logger.debug(`Published message to subject: ${subject}`);
+    } catch (error) {
+      this.logger.error(`Failed to publish to subject ${subject}`, error);
+      throw error;
+    }
   }
 }

@@ -57,7 +57,11 @@ export class EventConsumerService implements OnModuleInit {
         },
       });
 
-      // Step 3: Acknowledge the message (successful processing)
+      // Step 3: Publish the validated event to PROCESSED_EVENTS stream
+      const processedSubject = `processed.events.${validatedEvent.source}.${validatedEvent.funnelStage}.${validatedEvent.eventType}`;
+      await this.natsConsumer.publish(processedSubject, validatedEvent);
+
+      // Step 4: Acknowledge the message (successful processing)
       msg.ack();
 
       // Record success metrics
