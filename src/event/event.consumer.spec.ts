@@ -3,15 +3,12 @@ import { EventConsumerService } from './event.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { MetricsService } from '../metrics/metrics.service';
 import { NatsConsumerService } from '../nats/nats-consumer.service';
-import { PinoLogger } from 'nestjs-pino';
-import { ZodError } from 'zod';
 import { JsMsg } from 'nats';
 
 describe('EventConsumerService', () => {
   let service: EventConsumerService;
   let prismaService: PrismaService;
   let metricsService: MetricsService;
-  let natsConsumerService: NatsConsumerService;
 
   const mockLogger = {
     info: jest.fn(),
@@ -37,7 +34,6 @@ describe('EventConsumerService', () => {
 
     const mockNatsService = {
       subscribe: jest.fn(),
-      publish: jest.fn(),
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -71,7 +67,6 @@ describe('EventConsumerService', () => {
     service = module.get<EventConsumerService>(EventConsumerService);
     prismaService = module.get<PrismaService>(PrismaService);
     metricsService = module.get<MetricsService>(MetricsService);
-    natsConsumerService = module.get<NatsConsumerService>(NatsConsumerService);
   });
 
   it('should be defined', () => {
@@ -105,7 +100,7 @@ describe('EventConsumerService', () => {
 
     beforeEach(() => {
       mockMsg = {
-        subject: 'raw.events.tiktok.top.video.view',
+        subject: 'events.tiktok',
         ack: jest.fn(),
         nak: jest.fn(),
       } as unknown as JsMsg;
@@ -116,9 +111,6 @@ describe('EventConsumerService', () => {
       const createSpy = jest
         .spyOn(prismaService.tiktokEvent, 'create')
         .mockResolvedValue({} as any);
-      const publishSpy = jest
-        .spyOn(natsConsumerService, 'publish')
-        .mockResolvedValue();
 
       await (service as any).handleTiktokEvent(validEvent, mockMsg);
 
@@ -132,21 +124,18 @@ describe('EventConsumerService', () => {
         },
       });
 
-      expect(publishSpy).toHaveBeenCalledWith(
-        'processed.events.tiktok.top.video.view',
-        validEvent,
-      );
-
       expect(mockMsg.ack).toHaveBeenCalled();
 
       expect(metricsService.incrementEventsProcessed).toHaveBeenCalledWith(
         'tiktok',
-        'video.view',
-        'top',
+      );
+      expect(metricsService.recordEventProcessingDuration).toHaveBeenCalledWith(
+        'tiktok',
+        expect.any(Number),
       );
     });
 
-    it('should handle validation errors', async () => {
+    it('should handle validation errors and ack message', async () => {
       const invalidEvent = {
         eventId: 'evt_123',
       };
@@ -158,9 +147,13 @@ describe('EventConsumerService', () => {
         'tiktok',
         'validation_error',
       );
+      expect(metricsService.recordEventProcessingDuration).toHaveBeenCalledWith(
+        'tiktok',
+        expect.any(Number),
+      );
     });
 
-    it('should handle processing errors', async () => {
+    it('should handle processing errors and not ack message', async () => {
       jest
         .spyOn(prismaService.tiktokEvent, 'create')
         .mockRejectedValue(new Error('Database error'));
@@ -171,6 +164,10 @@ describe('EventConsumerService', () => {
       expect(metricsService.incrementEventsFailed).toHaveBeenCalledWith(
         'tiktok',
         'processing_error',
+      );
+      expect(metricsService.recordEventProcessingDuration).toHaveBeenCalledWith(
+        'tiktok',
+        expect.any(Number),
       );
     });
   });
