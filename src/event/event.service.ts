@@ -23,7 +23,7 @@ export class EventConsumerService implements OnModuleInit {
   }
 
   private async subscribeToTiktokEvents() {
-    const subject = 'raw.events.tiktok.>';
+    const subject = 'events.tiktok';
 
     this.logger.info({ subject }, 'Subscribing to subject');
 
@@ -71,20 +71,12 @@ export class EventConsumerService implements OnModuleInit {
         },
       });
 
-      const processedSubject = `processed.events.${validatedEvent.source}.${validatedEvent.funnelStage}.${validatedEvent.eventType}`;
-      await this.natsConsumer.publish(processedSubject, validatedEvent);
-
       msg.ack();
 
       const durationSeconds = (Date.now() - startTime) / 1000;
-      this.metrics.incrementEventsProcessed(
-        validatedEvent.source,
-        validatedEvent.eventType,
-        validatedEvent.funnelStage,
-      );
+      this.metrics.incrementEventsProcessed(validatedEvent.source);
       this.metrics.recordEventProcessingDuration(
         validatedEvent.source,
-        validatedEvent.eventType,
         durationSeconds,
       );
 
@@ -120,11 +112,7 @@ export class EventConsumerService implements OnModuleInit {
       }
 
       const durationSeconds = (Date.now() - startTime) / 1000;
-      this.metrics.recordEventProcessingDuration(
-        'tiktok',
-        'unknown',
-        durationSeconds,
-      );
+      this.metrics.recordEventProcessingDuration('tiktok', durationSeconds);
     }
   }
 }

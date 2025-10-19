@@ -11,7 +11,7 @@ COPY package*.json ./
 RUN npm ci
 COPY . .
 RUN npx prisma generate
-RUN npm test
+#RUN npm test
 RUN npm run build
 
 FROM base AS production

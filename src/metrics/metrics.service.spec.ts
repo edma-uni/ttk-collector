@@ -37,14 +37,12 @@ describe('MetricsService', () => {
 
   describe('incrementEventsProcessed', () => {
     it('should increment events processed counter', async () => {
-      service.incrementEventsProcessed('facebook', 'ad.view', 'top');
-      service.incrementEventsProcessed('facebook', 'ad.view', 'top');
+      service.incrementEventsProcessed('facebook');
+      service.incrementEventsProcessed('facebook');
 
       const metrics = await register.metrics();
       expect(metrics).toContain('collector_events_processed_total');
       expect(metrics).toContain('source="facebook"');
-      expect(metrics).toContain('event_type="ad.view"');
-      expect(metrics).toContain('funnel_stage="top"');
     });
   });
 
@@ -63,13 +61,12 @@ describe('MetricsService', () => {
 
   describe('recordEventProcessingDuration', () => {
     it('should record event processing duration', async () => {
-      service.recordEventProcessingDuration('facebook', 'ad.view', 0.123);
-      service.recordEventProcessingDuration('facebook', 'ad.view', 0.456);
+      service.recordEventProcessingDuration('facebook', 0.123);
+      service.recordEventProcessingDuration('facebook', 0.456);
 
       const metrics = await register.metrics();
       expect(metrics).toContain('collector_event_processing_duration_seconds');
       expect(metrics).toContain('source="facebook"');
-      expect(metrics).toContain('event_type="ad.view"');
     });
   });
 
